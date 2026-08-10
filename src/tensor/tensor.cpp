@@ -16,7 +16,7 @@ tensor_t Tensor::create(const std::vector<size_t> &shape,
                         llaisysDeviceType_t device_type,
                         int device) {
 
-    //计算strides 每一维+1内存跨过的元素
+    // 计算strides 每一维+1内存跨过的元素
     size_t ndim_ = shape.size();
     std::vector<ptrdiff_t> strides(ndim_);
     size_t stride = 1;
@@ -47,7 +47,7 @@ const std::byte *Tensor::data() const {
     return _storage->memory() + _offset;
 }
 
-//shape维度
+// shape维度
 size_t Tensor::ndim() const {
     return _meta.shape.size();
 }
@@ -64,7 +64,7 @@ llaisysDataType_t Tensor::dtype() const {
     return _meta.dtype;
 }
 
-//获取设备类型
+// 获取设备类型
 llaisysDeviceType_t Tensor::deviceType() const {
     return _storage->deviceType();
 }
@@ -73,17 +73,17 @@ int Tensor::deviceId() const {
     return _storage->deviceId();
 }
 
-//计算元素数量
+// 计算元素数量
 size_t Tensor::numel() const {
     return std::accumulate(_meta.shape.begin(), _meta.shape.end(), size_t(1), std::multiplies<size_t>());
 }
 
-//每个元素占多少字节
+// 每个元素占多少字节
 size_t Tensor::elementSize() const {
     return utils::dsize(_meta.dtype);
 }
 
-//这里 numel() * elementSize() 算tensor占用字节数
+// 这里 numel() * elementSize() 算tensor占用字节数
 
 std::string Tensor::info() const {
     std::stringstream ss;
@@ -172,20 +172,20 @@ void Tensor::debug() const {
     }
 }
 
-//作业1.2 Contiguous连续性
+// 作业1.2 Contiguous连续性
 //_offset不影响连续性
 bool Tensor::isContiguous() const {
-    //空tensor直接返回true
+    // 空tensor直接返回true
     if (numel() == 0) {
         return true;
     }
 
-    //最后一维步长味为1
+    // 最后一维步长味为1
     ptrdiff_t expected_stride = 1;
 
-    //size_t无符号整数 i从0-1会得到一个极大的正数 死循环
+    // size_t无符号整数 i从0-1会得到一个极大的正数 死循环
     for (size_t i = ndim(); i-- > 0;) {
-        //维度为1 不影响元素是否紧密排列
+        // 维度为1 不影响元素是否紧密排列
         if (_meta.shape[i] == 1) {
             continue;
         }
@@ -200,27 +200,29 @@ bool Tensor::isContiguous() const {
     return true;
 }
 
-//作业1.4：创建一个新张量，改变原始张量维度的顺序。转置可以通过这个函数实现，而无需移动数据
+// 作业1.4：创建一个新张量，改变原始张量维度的顺序。转置可以通过这个函数实现，而无需移动数据
 tensor_t Tensor::permute(const std::vector<size_t> &order) const {
-    //shape维度要一致
+    // shape维度要一致
     CHECK_ARGUMENT(order.size() == ndim(), "Permute order size must equal tensor ndim!");
 
-    //新的shape和stride
+    // 新的shape和stride
     std::vector<size_t> new_shape(ndim());
     std::vector<ptrdiff_t> new_strides(ndim());
 
-    //防止重复使用一个旧维度 来做个标记嘿嘿 我记得这个类型是模板特化 按照bit
+    // 防止重复使用一个旧维度 来做个标记嘿嘿 我记得这个类型是模板特化 按照bit
     std::vector<bool> visited(ndim(), false);
 
-    //新旧维度和步长对应
+    // 新旧维度和步长对应
     for (size_t new_dim = 0; new_dim < ndim(); ++new_dim) {
         size_t old_dim = order[new_dim];
 
-        //维度没有超出范围
+        // 维度没有超出范围
         CHECK_ARGUMENT(old_dim < ndim(), "Permute dimension is out of range");
 
-        //维度未重复使用
+        // 维度未重复使用
         CHECK_ARGUMENT(!visited[old_dim], "Permute order contains duplicate dimensions");
+
+        visited[old_dim] = true;
 
         new_shape[new_dim] = _meta.shape[old_dim];
         new_strides[new_dim] = _meta.strides[old_dim];
@@ -231,12 +233,12 @@ tensor_t Tensor::permute(const std::vector<size_t> &order) const {
     return std::shared_ptr<Tensor>(new Tensor(new_meta, _storage, _offset));
 }
 
-//作业1.3 仅支持连续tensor
+// 作业1.3 仅支持连续tensor
 tensor_t Tensor::view(const std::vector<size_t> &shape) const {
-    //新shape元素的个数
+    // 新shape元素的个数
     size_t new_numel = std::accumulate(shape.begin(), shape.end(), size_t(1), std::multiplies<size_t>());
 
-    //新元素shape个数=原shape元素个数
+    // 新元素shape个数=原shape元素个数
     CHECK_ARGUMENT(new_numel == numel(), "View shape must have the same number of elements!");
 
     CHECK_ARGUMENT(isContiguous(), "This simple version only supports contiguous tensors");
@@ -244,58 +246,59 @@ tensor_t Tensor::view(const std::vector<size_t> &shape) const {
     std::vector<ptrdiff_t> new_strides(shape.size());
 
     ptrdiff_t stride = 1;
-    for(size_t i = shape.size(); i-- > 0;) {
+    for (size_t i = shape.size(); i-- > 0;) {
         new_strides[i] = stride;
         stride *= static_cast<ptrdiff_t>(shape[i]);
     }
 
     TensorMeta new_meta{_meta.dtype, shape, new_strides};
-    
+
     return std::shared_ptr<Tensor>(new Tensor(new_meta, _storage, _offset));
 }
 
-//作业1.5：创建一个新张量，沿给定维度，start（包含）和end（不包含）索引对原始张量进行切片操作
+// 作业1.5：创建一个新张量，沿给定维度，start（包含）和end（不包含）索引对原始张量进行切片操作
 tensor_t Tensor::slice(size_t dim, size_t start, size_t end) const {
-    //检查dim, end越界
+    // 检查dim, end越界
     CHECK_ARGUMENT(dim < ndim(), "Slice dimension is out of range");
     CHECK_ARGUMENT(end <= _meta.shape[dim], "Slice end is out of range");
 
     CHECK_ARGUMENT(start <= end, "Slice start must not be greater than end");
 
-    //当前项目不支持负stride
+    // 当前项目不支持负stride
     CHECK_ARGUMENT(_meta.strides[dim] >= 0, "Negative strides are not supported");
 
-    //切片
+    // 切片
     TensorMeta new_meta = _meta;
     new_meta.shape[dim] = end - start;
 
-    //改offset
+    // 改offset
     size_t stride = static_cast<size_t>(_meta.strides[dim]);
     size_t new_offset = _offset + start * stride * elementSize();
 
     return std::shared_ptr<Tensor>(new Tensor(new_meta, _storage, new_offset));
 }
 
-//作业1.1
-//src_是CPU内存地址，目标tensor可能在CPU/GPU
+// 作业1.1
+// src_是CPU内存地址，目标tensor可能在CPU/GPU
 void Tensor::load(const void *src_) {
-    //空tensor不复制：如果元素数量是0，不访问src_
+    // 空tensor不复制：如果元素数量是0，不访问src_
     if (numel() == 0) {
         return;
     }
 
-    //检查空指针：如果源地址空，则复制造成非法访问
+    // 检查空指针：如果源地址空，则复制造成非法访问
     CHECK_ARGUMENT(src_ != nullptr, "Source pointer should not be null!!!!");
 
-    //切换到tensor所在设备
+    // 切换到tensor所在设备
     core::context().setDevice(deviceType(), deviceId());
 
-    //选择复制方向 to cpu/gpu
+    // 选择复制方向 to cpu/gpu
     auto kind = (deviceType() == LLAISYS_DEVICE_CPU
-                ? LLAISYS_MEMCPY_H2H : LLAISYS_MEMCPY_H2D);
-                
-    //调用同步复制
-    core::context().runtime().api()->memcpy_sync(data(), src_, numel()*elementSize(), kind);
+                     ? LLAISYS_MEMCPY_H2H
+                     : LLAISYS_MEMCPY_H2D);
+
+    // 调用同步复制
+    core::context().runtime().api()->memcpy_sync(data(), src_, numel() * elementSize(), kind);
 }
 
 tensor_t Tensor::contiguous() const {
