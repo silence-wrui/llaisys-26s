@@ -172,7 +172,7 @@ void Tensor::debug() const {
     }
 }
 
-//作业1.2
+//作业1.2 Contiguous连续性
 //_offset不影响连续性
 bool Tensor::isContiguous() const {
     //空tensor直接返回true
@@ -205,9 +205,27 @@ tensor_t Tensor::permute(const std::vector<size_t> &order) const {
     return std::shared_ptr<Tensor>(new Tensor(_meta, _storage));
 }
 
+//作业1.3 仅支持连续tensor
 tensor_t Tensor::view(const std::vector<size_t> &shape) const {
-    TO_BE_IMPLEMENTED();
-    return std::shared_ptr<Tensor>(new Tensor(_meta, _storage));
+    //新shape元素的个数
+    size_t new_numel = std::accumulate(shape.begin(), shape.end(), size_t(1), std::multiplies<size_t>());
+
+    //新元素shape个数=原shape元素个数
+    CHECK_ARGUMENT(new_numel == numel(), "View shape must have the same number of elements!");
+
+    CHECK_ARGUMENT(isContiguous(), "This simple version only supports contiguous tensors");
+
+    std::vector<ptrdiff_t> new_strides(shape.size());
+
+    ptrdiff_t stride = 1;
+    for(size_t i = shape.size(); i-- > 0;) {
+        new_strides[i] = stride;
+        stride *= static_cast<ptrdiff_t>(shape[i]);
+    }
+
+    TensorMeta new_meta{_meta.dtype, shape, new_strides};
+    
+    return std::shared_ptr<Tensor>(new Tensor(new_meta, _storage, _offset));
 }
 
 tensor_t Tensor::slice(size_t dim, size_t start, size_t end) const {
