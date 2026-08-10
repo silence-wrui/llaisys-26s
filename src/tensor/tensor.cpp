@@ -254,9 +254,26 @@ tensor_t Tensor::view(const std::vector<size_t> &shape) const {
     return std::shared_ptr<Tensor>(new Tensor(new_meta, _storage, _offset));
 }
 
+//作业1.5：创建一个新张量，沿给定维度，start（包含）和end（不包含）索引对原始张量进行切片操作
 tensor_t Tensor::slice(size_t dim, size_t start, size_t end) const {
-    TO_BE_IMPLEMENTED();
-    return std::shared_ptr<Tensor>(new Tensor(_meta, _storage));
+    //检查dim, end越界
+    CHECK_ARGUMENT(dim < ndim(), "Slice dimension is out of range");
+    CHECK_ARGUMENT(end <= _meta.shape[dim], "Slice end is out of range");
+
+    CHECK_ARGUMENT(start <= end, "Slice start must not be greater than end");
+
+    //当前项目不支持负stride
+    CHECK_ARGUMENT(_meta.strides[dim] >= 0, "Negative strides are not supported");
+
+    //切片
+    TensorMeta new_meta = _meta;
+    new_meta.shape[dim] = end - start;
+
+    //改offset
+    size_t stride = static_cast<size_t>(_meta.strides[dim]);
+    size_t new_offset = _offset + start * stride * elementSize();
+
+    return std::shared_ptr<Tensor>(new Tensor(new_meta, _storage, new_offset));
 }
 
 //作业1.1
