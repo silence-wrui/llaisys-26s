@@ -200,9 +200,35 @@ bool Tensor::isContiguous() const {
     return true;
 }
 
+//作业1.4：创建一个新张量，改变原始张量维度的顺序。转置可以通过这个函数实现，而无需移动数据
 tensor_t Tensor::permute(const std::vector<size_t> &order) const {
-    TO_BE_IMPLEMENTED();
-    return std::shared_ptr<Tensor>(new Tensor(_meta, _storage));
+    //shape维度要一致
+    CHECK_ARGUMENT(order.size() == ndim(), "Permute order size must equal tensor ndim!");
+
+    //新的shape和stride
+    std::vector<size_t> new_shape(ndim());
+    std::vector<ptrdiff_t> new_strides(ndim());
+
+    //防止重复使用一个旧维度 来做个标记嘿嘿 我记得这个类型是模板特化 按照bit
+    std::vector<bool> visited(ndim(), false);
+
+    //新旧维度和步长对应
+    for (size_t new_dim = 0; new_dim < ndim(); ++new_dim) {
+        size_t old_dim = order[new_dim];
+
+        //维度没有超出范围
+        CHECK_ARGUMENT(old_dim < ndim(), "Permute dimension is out of range");
+
+        //维度未重复使用
+        CHECK_ARGUMENT(!visited[old_dim], "Permute order contains duplicate dimensions");
+
+        new_shape[new_dim] = _meta.shape[old_dim];
+        new_strides[new_dim] = _meta.strides[old_dim];
+    }
+
+    TensorMeta new_meta{_meta.dtype, new_shape, new_strides};
+
+    return std::shared_ptr<Tensor>(new Tensor(new_meta, _storage, _offset));
 }
 
 //作业1.3 仅支持连续tensor
