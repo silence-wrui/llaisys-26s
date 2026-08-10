@@ -47,6 +47,7 @@ const std::byte *Tensor::data() const {
     return _storage->memory() + _offset;
 }
 
+//shape维度
 size_t Tensor::ndim() const {
     return _meta.shape.size();
 }
@@ -172,8 +173,30 @@ void Tensor::debug() const {
 }
 
 //作业1.2
+//_offset不影响连续性
 bool Tensor::isContiguous() const {
-    TO_BE_IMPLEMENTED();
+    //空tensor直接返回true
+    if (numel() == 0) {
+        return true;
+    }
+
+    //最后一维步长味为1
+    ptrdiff_t expected_stride = 1;
+
+    //size_t无符号整数 i从0-1会得到一个极大的正数 死循环
+    for (size_t i = ndim(); i-- > 0;) {
+        //维度为1 不影响元素是否紧密排列
+        if (_meta.shape[i] == 1) {
+            continue;
+        }
+
+        if (_meta.strides[i] != expected_stride) {
+            return false;
+        }
+
+        expected_stride *= static_cast<ptrdiff_t>(_meta.shape[i]);
+    }
+
     return true;
 }
 
