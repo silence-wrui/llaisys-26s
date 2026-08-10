@@ -7,15 +7,15 @@ class Tensor;
 using tensor_t = std::shared_ptr<Tensor>;
 
 struct TensorMeta {
-    llaisysDataType_t dtype;
-    std::vector<size_t> shape;
-    std::vector<ptrdiff_t> strides;
+    llaisysDataType_t dtype; //每个元素的数据类型
+    std::vector<size_t> shape; //tensor每个维度的大小
+    std::vector<ptrdiff_t> strides; //某个维度下标增1在内存中跨过的元素
 };
 
 class Tensor {
 private:
     TensorMeta _meta;
-    core::storage_t _storage;
+    core::storage_t _storage; //真正拥有底层内存的对象
     size_t _offset;
     Tensor(TensorMeta meta, core::storage_t storage, size_t offset = 0);
 

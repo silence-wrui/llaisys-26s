@@ -15,6 +15,8 @@ tensor_t Tensor::create(const std::vector<size_t> &shape,
                         llaisysDataType_t dtype,
                         llaisysDeviceType_t device_type,
                         int device) {
+
+    //计算strides 每一维+1内存跨过的元素
     size_t ndim_ = shape.size();
     std::vector<ptrdiff_t> strides(ndim_);
     size_t stride = 1;
@@ -22,6 +24,7 @@ tensor_t Tensor::create(const std::vector<size_t> &shape,
         strides[ndim_ - i] = stride;
         stride *= shape[ndim_ - i];
     }
+
     TensorMeta meta{dtype, shape, strides};
     size_t total_elems = stride;
     size_t dtype_size = utils::dsize(dtype);
@@ -60,6 +63,7 @@ llaisysDataType_t Tensor::dtype() const {
     return _meta.dtype;
 }
 
+//获取设备类型
 llaisysDeviceType_t Tensor::deviceType() const {
     return _storage->deviceType();
 }
@@ -68,13 +72,17 @@ int Tensor::deviceId() const {
     return _storage->deviceId();
 }
 
+//计算元素数量
 size_t Tensor::numel() const {
     return std::accumulate(_meta.shape.begin(), _meta.shape.end(), size_t(1), std::multiplies<size_t>());
 }
 
+//每个元素占多少字节
 size_t Tensor::elementSize() const {
     return utils::dsize(_meta.dtype);
 }
+
+//这里 numel() * elementSize() 算tensor占用字节数
 
 std::string Tensor::info() const {
     std::stringstream ss;
@@ -183,8 +191,23 @@ tensor_t Tensor::slice(size_t dim, size_t start, size_t end) const {
     return std::shared_ptr<Tensor>(new Tensor(_meta, _storage));
 }
 
+//作业1.1
+//src_是CPU内存地址，目标tensor可能在CPU/GPU
 void Tensor::load(const void *src_) {
-    TO_BE_IMPLEMENTED();
+    //空tensor不复制：如果元素数量是0，不访问src_
+    if (numel() == 0) {
+        return;
+    }
+
+    //检查空指针：如果源地址空，则复制造成非法访问
+    CHECK_ARGUMENT(src_ != nullptr, "Source pointer should not be null!!!!");
+
+    //切换到tensor所在设备
+    core::context().setDevice(deviceType(), deviceId());
+
+    //选择复制方向 to cpu/gpu
+    auto kind = (deviceType() == LLAISYS_DEVICE_CPU
+                ? LLAISYS_MEMCPY_H2H : LLAISYS_MEMCPY_H2D);
 }
 
 tensor_t Tensor::contiguous() const {
