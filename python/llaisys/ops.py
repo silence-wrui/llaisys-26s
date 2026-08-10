@@ -18,10 +18,17 @@ class Ops:
             out.lib_tensor(), index.lib_tensor(), weight.lib_tensor()
         )
 
+    # @staticmethod
+    # def linear(out: Tensor, inp: Tensor, weight: Tensor, bias: Tensor):
+    #     LIB_LLAISYS.llaisysLinear(
+    #         out.lib_tensor(), inp.lib_tensor(), weight.lib_tensor(), bias.lib_tensor()
+    #     )
     @staticmethod
-    def linear(out: Tensor, inp: Tensor, weight: Tensor, bias: Tensor):
+    def linear(out: Tensor, inp: Tensor, weight: Tensor, bias: Tensor = None,):
+        bias_tensor = (None if bias is None else bias.lib_tensor())
+
         LIB_LLAISYS.llaisysLinear(
-            out.lib_tensor(), inp.lib_tensor(), weight.lib_tensor(), bias.lib_tensor()
+            out.lib_tensor(), inp.lib_tensor(), weight.lib_tensor(), bias_tensor,
         )
 
     @staticmethod

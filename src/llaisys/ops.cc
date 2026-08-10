@@ -22,8 +22,13 @@ __C {
     void llaisysEmbedding(llaisysTensor_t out, llaisysTensor_t index, llaisysTensor_t weight) {
         llaisys::ops::embedding(out->tensor, index->tensor, weight->tensor);
     }
+    // void llaisysLinear(llaisysTensor_t out, llaisysTensor_t in, llaisysTensor_t weight, llaisysTensor_t bias) {
+    //     llaisys::ops::linear(out->tensor, in->tensor, weight->tensor, bias->tensor);
+    // }
+    //原来的代码直接访问 bias->tensor,当 bias == nullptr 时会崩溃,把 C 空指针转换成空的 C++ shared_ptr<Tensor>
     void llaisysLinear(llaisysTensor_t out, llaisysTensor_t in, llaisysTensor_t weight, llaisysTensor_t bias) {
-        llaisys::ops::linear(out->tensor, in->tensor, weight->tensor, bias->tensor);
+        llaisys::tensor_t bias_tensor = bias == nullptr ? nullptr : bias->tensor;
+        llaisys::ops::linear(out->tensor, in->tensor, weight->tensor, bias_tensor);
     }
     void llaisysRearrange(llaisysTensor_t out, llaisysTensor_t in) {
         llaisys::ops::rearrange(out->tensor, in->tensor);
