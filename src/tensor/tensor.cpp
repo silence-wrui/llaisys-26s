@@ -209,6 +209,9 @@ void Tensor::load(const void *src_) {
     //选择复制方向 to cpu/gpu
     auto kind = (deviceType() == LLAISYS_DEVICE_CPU
                 ? LLAISYS_MEMCPY_H2H : LLAISYS_MEMCPY_H2D);
+                
+    //调用同步复制
+    core::context().runtime().api()->memcpy_sync(data(), src_, numel()*elementSize(), kind);
 }
 
 tensor_t Tensor::contiguous() const {
