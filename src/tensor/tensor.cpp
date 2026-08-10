@@ -171,6 +171,7 @@ void Tensor::debug() const {
     }
 }
 
+//作业1.2
 bool Tensor::isContiguous() const {
     TO_BE_IMPLEMENTED();
     return true;
