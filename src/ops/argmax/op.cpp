@@ -5,6 +5,10 @@
 
 #include "cpu/argmax_cpu.hpp"
 
+#ifdef ENABLE_NVIDIA_API
+#include "nvidia/argmax_nvidia.cuh"
+#endif
+
 namespace llaisys::ops {
 void argmax(tensor_t max_idx, tensor_t max_val, tensor_t vals) {
     // 要求三个 Tensor 位于同一个设备，否则可能出现 CPU 函数读取 GPU 地址等严重错误
@@ -36,8 +40,12 @@ void argmax(tensor_t max_idx, tensor_t max_val, tensor_t vals) {
     switch (vals->deviceType()) {
 #ifdef ENABLE_NVIDIA_API
     case LLAISYS_DEVICE_NVIDIA:
-        TO_BE_IMPLEMENTED();
-        return;
+        return nvidia::argmax(max_idx->data(),
+            max_val->data(),
+            vals->data(),
+            vals->dtype(),
+            vals->numel(),
+            llaisys::core::context().runtime().stream());
 #endif
     default:
         EXCEPTION_UNSUPPORTED_DEVICE;

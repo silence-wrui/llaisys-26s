@@ -29,7 +29,7 @@ target("llaisys-ops-nvidia")
     set_warnings("all", "error")
 
     -- CUDA operator sources will be added in later stages.
-    -- add_files("../src/ops/*/nvidia/*.cu")
+    add_files("../src/ops/*/nvidia/*.cu")
     add_cugencodes("native", "compute_75")
     add_links("cudart", "cublas")
 
