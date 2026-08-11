@@ -234,22 +234,92 @@ tensor_t Tensor::permute(const std::vector<size_t> &order) const {
 }
 
 // 作业1.3 仅支持连续tensor
+// tensor_t Tensor::view(const std::vector<size_t> &shape) const {
+//     // 新shape元素的个数
+//     size_t new_numel = std::accumulate(shape.begin(), shape.end(), size_t(1), std::multiplies<size_t>());
+
+//     // 新元素shape个数=原shape元素个数
+//     CHECK_ARGUMENT(new_numel == numel(), "View shape must have the same number of elements!");
+
+//     CHECK_ARGUMENT(isContiguous(), "This simple version only supports contiguous tensors");
+
+//     std::vector<ptrdiff_t> new_strides(shape.size());
+
+//     ptrdiff_t stride = 1;
+//     for (size_t i = shape.size(); i-- > 0;) {
+//         new_strides[i] = stride;
+//         stride *= static_cast<ptrdiff_t>(shape[i]);
+//     }
+
+//     TensorMeta new_meta{_meta.dtype, shape, new_strides};
+
+//     return std::shared_ptr<Tensor>(new Tensor(new_meta, _storage, _offset));
+// }
 tensor_t Tensor::view(const std::vector<size_t> &shape) const {
-    // 新shape元素的个数
     size_t new_numel = std::accumulate(shape.begin(), shape.end(), size_t(1), std::multiplies<size_t>());
 
-    // 新元素shape个数=原shape元素个数
-    CHECK_ARGUMENT(new_numel == numel(), "View shape must have the same number of elements!");
-
-    CHECK_ARGUMENT(isContiguous(), "This simple version only supports contiguous tensors");
+    CHECK_ARGUMENT(new_numel == numel(), "View shape must have the same number of elements");
 
     std::vector<ptrdiff_t> new_strides(shape.size());
 
-    ptrdiff_t stride = 1;
-    for (size_t i = shape.size(); i-- > 0;) {
-        new_strides[i] = stride;
-        stride *= static_cast<ptrdiff_t>(shape[i]);
+    // 空 Tensor 或标量：生成普通连续 strides。
+    if (numel() == 0 || ndim() == 0) {
+        ptrdiff_t stride = 1;
+
+        for (size_t i = shape.size(); i-- > 0;) {
+            new_strides[i] = stride;
+            stride *= static_cast<ptrdiff_t>(shape[i]);
+        }
+
+        TensorMeta new_meta{_meta.dtype, shape, new_strides};
+        return std::shared_ptr<Tensor>(new Tensor(new_meta, _storage, _offset));
     }
+
+    // view_dim 必须是有符号类型，因为它最终需要变成 -1。
+    ptrdiff_t view_dim = static_cast<ptrdiff_t>(shape.size()) - 1;
+
+    // 当前旧 Tensor 连续块最右侧维度的 stride。
+    ptrdiff_t chunk_base_stride = _meta.strides.back();
+
+    size_t tensor_numel = 1;
+    size_t view_numel = 1;
+
+    // 从旧 Tensor 的最后一维向前寻找连续块。
+    for (size_t tensor_dim = ndim(); tensor_dim-- > 0;) {
+        tensor_numel *= _meta.shape[tensor_dim];
+
+        bool end_of_chunk = tensor_dim == 0 || (_meta.shape[tensor_dim - 1] != 1 && _meta.strides[tensor_dim - 1] != static_cast<ptrdiff_t>(tensor_numel) * chunk_base_stride);
+
+        if (!end_of_chunk) {
+            continue;
+        }
+
+        // 使用新 shape 的若干维度重新拆分当前连续块。
+        while (
+            view_dim >= 0 && (view_numel < tensor_numel || shape[static_cast<size_t>(view_dim)] == 1)) {
+
+            size_t current_view_dim = static_cast<size_t>(view_dim);
+
+            new_strides[current_view_dim] = static_cast<ptrdiff_t>(view_numel) * chunk_base_stride;
+
+            view_numel *= shape[current_view_dim];
+            --view_dim;
+        }
+
+        CHECK_ARGUMENT(
+            view_numel == tensor_numel,
+            "Requested view is incompatible with tensor strides");
+
+        // 开始处理下一个连续块。
+        if (tensor_dim > 0) {
+            chunk_base_stride = _meta.strides[tensor_dim - 1];
+
+            tensor_numel = 1;
+            view_numel = 1;
+        }
+    }
+
+    CHECK_ARGUMENT(view_dim == -1, "Requested view is incompatible with tensor strides");
 
     TensorMeta new_meta{_meta.dtype, shape, new_strides};
 
