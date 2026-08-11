@@ -50,6 +50,7 @@ private:
     std::vector<tensor_t> _v_cache;
 
     void allocateWeights();
+    void ensureCacheCapacity(size_t required);
 
 public:
     Qwen2Model(

@@ -255,7 +255,60 @@ class Qwen2:
         top_p: float = 0.8,
         temperature: float = 0.8,
     ):
-        # 阶段 2、3 再实现。
-        raise NotImplementedError(
-            "Qwen2 inference is not implemented yet"
-        )
+        if self._used:
+            raise RuntimeError(
+                "This Qwen2 model instance has already "
+                "been used for generation"
+            )
+
+        if not inputs:
+            raise ValueError(
+                "Qwen2 input tokens must not be empty"
+            )
+
+        if max_new_tokens is None:
+            max_new_tokens = 128
+
+        if max_new_tokens < 0:
+            raise ValueError(
+                "max_new_tokens must not be negative"
+            )
+
+        # 当前作业要求 argmax，因此暂时不使用采样参数。
+        _ = top_k, top_p, temperature
+
+        self._used = True
+
+        output_tokens = [
+            int(token) for token in inputs
+        ]
+
+        if max_new_tokens == 0:
+            return output_tokens
+
+        # 第一次必须传入完整提示词。
+        current_input = output_tokens.copy()
+
+        for _ in range(max_new_tokens):
+            token_array = (
+                c_int64 * len(current_input)
+            )(*current_input)
+
+            next_token = int(
+                LIB_LLAISYS.llaisysQwen2ModelInfer(
+                    self._model,
+                    token_array,
+                    len(current_input),
+                )
+            )
+
+            output_tokens.append(next_token)
+
+            if next_token == self._end_token:
+                break
+
+            # KV Cache 已保存此前内容，
+            # 下一轮只输入刚生成的一个 token。
+            current_input = [next_token]
+
+        return output_tokens
