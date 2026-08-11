@@ -1,5 +1,8 @@
 target("llaisys-device-nvidia")
     set_kind("static")
+    set_policy("build.cuda.devlink", true)
+    add_culdflags("-Xcompiler=-fPIC", {force = true})
+
     set_languages("cxx17")
     set_warnings("all", "error")
 
@@ -17,6 +20,9 @@ target_end()
 
 target("llaisys-ops-nvidia")
     set_kind("static")
+    set_policy("build.cuda.devlink", true)
+    add_culdflags("-Xcompiler=-fPIC", {force = true})
+
     add_deps("llaisys-tensor")
 
     set_languages("cxx17")
