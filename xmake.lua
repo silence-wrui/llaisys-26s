@@ -104,6 +104,9 @@ target("llaisys-ops")
     if has_config("nv-gpu") then
         add_deps("llaisys-ops-nvidia")
     end
+    if has_config("musa-gpu") then
+        add_deps("llaisys-ops-musa")
+    end
 
     set_languages("cxx17")
     set_warnings("all", "error")
@@ -121,7 +124,12 @@ target("llaisys")
     
     if has_config("musa-gpu") then
         add_deps("llaisys-device-musa")
-        add_linkgroups("llaisys-device-musa", {whole = true})
+        add_deps("llaisys-ops-musa")
+        add_linkgroups(
+            "llaisys-device-musa",
+            "llaisys-ops-musa",
+            {whole = true}
+        )
     end
 
     add_deps("llaisys-utils")

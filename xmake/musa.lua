@@ -56,3 +56,14 @@ target("llaisys-device-musa")
 
     on_install(function (target) end)
 target_end()
+
+target("llaisys-ops-musa")
+    set_kind("static")
+    add_rules("musa.build")
+
+    add_deps("llaisys-tensor")
+
+    add_files("../src/ops/*/musa/*.mu")
+
+    on_install(function (target) end)
+target_end()

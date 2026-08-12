@@ -9,6 +9,10 @@
 #include "nvidia/add_nvidia.cuh"
 #endif
 
+#ifdef ENABLE_MUSA_API
+#include "musa/add_musa.muh"
+#endif
+
 namespace llaisys::ops {
 void add(tensor_t c, tensor_t a, tensor_t b) {
     CHECK_SAME_DEVICE(c, a, b);
@@ -30,6 +34,16 @@ void add(tensor_t c, tensor_t a, tensor_t b) {
 #ifdef ENABLE_NVIDIA_API
     case LLAISYS_DEVICE_NVIDIA:
         return nvidia::add(
+            c->data(),
+            a->data(),
+            b->data(),
+            c->dtype(),
+            c->numel(),
+            llaisys::core::context().runtime().stream());
+#endif
+#ifdef ENABLE_MUSA_API
+    case LLAISYS_DEVICE_MUSA:
+        return musa::add(
             c->data(),
             a->data(),
             b->data(),
