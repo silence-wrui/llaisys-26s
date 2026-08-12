@@ -13,6 +13,18 @@ option("nv-gpu")
     set_description("Whether to compile implementations for Nvidia GPU")
 option_end()
 
+-- MUSA --
+option("musa-gpu")
+    set_default(false)
+    set_showmenu(true)
+    set_description("Whether to compile implementations for Moore Threads MUSA GPU")
+option_end()
+
+if has_config("musa-gpu") then
+    add_defines("ENABLE_MUSA_API")
+    includes("xmake/musa.lua")
+end
+
 if has_config("nv-gpu") then
     add_defines("ENABLE_NVIDIA_API")
     includes("xmake/nvidia.lua")
@@ -39,6 +51,9 @@ target("llaisys-device")
     add_deps("llaisys-device-cpu")
     if has_config("nv-gpu") then
         add_deps("llaisys-device-nvidia")
+    end
+    if has_config("musa-gpu") then
+        add_deps("llaisys-device-musa")
     end
 
     set_languages("cxx17")
@@ -104,6 +119,11 @@ target_end()
 target("llaisys")
     set_kind("shared")
     
+    if has_config("musa-gpu") then
+        add_deps("llaisys-device-musa")
+        add_linkgroups("llaisys-device-musa", {whole = true})
+    end
+
     add_deps("llaisys-utils")
     add_deps("llaisys-device")
     add_deps("llaisys-core")
