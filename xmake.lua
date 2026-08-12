@@ -110,6 +110,7 @@ target("llaisys-ops")
 
     set_languages("cxx17")
     set_warnings("all", "error")
+    add_cxxflags("/wd4065", {tools = "cl"})
     if not is_plat("windows") then
         add_cxflags("-fPIC", "-Wno-unknown-pragmas")
     end
@@ -140,6 +141,7 @@ target("llaisys")
 
     set_languages("cxx17")
     set_warnings("all", "error")
+    add_cxxflags("/wd4297", {tools = "cl"})
 
     add_files("src/llaisys/*.cc")
     add_files("src/models/*/*.cpp")
