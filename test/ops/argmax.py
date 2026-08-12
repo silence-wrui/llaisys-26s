@@ -1,4 +1,3 @@
-from calendar import c
 import sys
 import os
 
@@ -27,9 +26,8 @@ def test_op_argmax(
     torch_argmax(max_idx, max_val, vals)
     llaisys.Ops.argmax(max_idx_, max_val_, vals_)
 
-    assert check_equal(max_val_, max_val, strict=True) or check_equal(
-        max_idx_, max_idx, strict=True
-    )
+    assert check_equal(max_val_, max_val, strict=True)
+    assert check_equal(max_idx_, max_idx, strict=True)
 
     if profile:
         benchmark(
@@ -43,7 +41,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--device", default="cpu", choices=["cpu", "nvidia"], type=str)
+    parser.add_argument("--device", default="cpu", choices=["cpu", "nvidia", "musa"], type=str)
     parser.add_argument("--profile", action="store_true")
     args = parser.parse_args()
     testShapes = [(4,), (4096,)]
