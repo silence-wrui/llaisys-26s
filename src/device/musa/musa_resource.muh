@@ -1,0 +1,17 @@
+#pragma once
+
+#include "../device_resource.hpp"
+
+#include <mublas.h>
+
+namespace llaisys::device::musa {
+class Resource : public llaisys::device::DeviceResource {
+private:
+    mublasHandle_t _mublas_handle;
+public:
+    explicit Resource(int device_id);
+    ~Resource();
+    mublasHandle_t mublasHandle() const;
+};
+Resource &getResource(int device_id);
+} // namespace llaisys::device::musa

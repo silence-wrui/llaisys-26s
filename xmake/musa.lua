@@ -52,7 +52,7 @@ target("llaisys-device-musa")
         path.join(musa_home, "lib"),
         {public = true}
     )
-    add_syslinks("musart", {public = true})
+    add_syslinks("mublas", "musart", {public = true})
 
     on_install(function (target) end)
 target_end()
