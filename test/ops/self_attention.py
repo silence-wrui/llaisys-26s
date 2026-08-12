@@ -8,6 +8,7 @@ import torch
 from test_utils import random_tensor, check_equal, benchmark
 
 
+
 def torch_self_attention(attn_val, query, key, value, scale):
     query = query.transpose(-2, -3)
     key = key.transpose(-2, -3)
@@ -49,7 +50,26 @@ def test_op_self_attention(
     scale = 1.0 / (hd**0.5)
 
     attn_val, attn_val_ = random_tensor((qlen, nh, hd), dtype_name, device_name)
-    torch_self_attention(attn_val, q, k, v, scale)
+
+    if device_name == "musa":
+        # torch-musa GEMM uses TF32 for F32 inputs. Build the reference
+        # with CPU FP32 because this kernel performs full FP32 accumulation.
+        reference_cpu = torch.empty((qlen, nh, hd), dtype=torch.float32)
+        torch_self_attention(
+            reference_cpu,
+            q.cpu().float(),
+            k.cpu().float(),
+            v.cpu().float(),
+            scale,
+        )
+        attn_val.copy_(
+            reference_cpu.to(
+                dtype=attn_val.dtype,
+                device=attn_val.device,
+            )
+        )
+    else:
+        torch_self_attention(attn_val, q, k, v, scale)
     llaisys.Ops.self_attention(attn_val_, q_, k_, v_, scale)
     assert check_equal(attn_val_, attn_val, atol=atol, rtol=rtol)
 
@@ -65,7 +85,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--device", default="cpu", choices=["cpu", "nvidia"], type=str)
+    parser.add_argument("--device", default="cpu", choices=["cpu", "nvidia", "musa"], type=str)
     parser.add_argument("--profile", action="store_true")
     args = parser.parse_args()
     testShapes = [
