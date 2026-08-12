@@ -9,6 +9,10 @@
 #include "nvidia/embedding_nvidia.cuh"
 #endif
 
+#ifdef ENABLE_MUSA_API
+#include "musa/embedding_musa.muh"
+#endif
+
 namespace llaisys::ops {
 void embedding(tensor_t out,
                tensor_t index,
@@ -60,6 +64,18 @@ void embedding(tensor_t out,
             llaisys::core::context()
                 .runtime()
                 .stream());
+#endif
+#ifdef ENABLE_MUSA_API
+    case LLAISYS_DEVICE_MUSA:
+        return musa::embedding(
+            out->data(),
+            reinterpret_cast<const int64_t *>(index->data()),
+            weight->data(),
+            weight->dtype(),
+            index->numel(),
+            weight->shape()[0],
+            weight->shape()[1],
+            llaisys::core::context().runtime().stream());
 #endif
     default:
         EXCEPTION_UNSUPPORTED_DEVICE;
