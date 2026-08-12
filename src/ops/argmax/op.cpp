@@ -31,25 +31,28 @@ void argmax(tensor_t max_idx, tensor_t max_val, tensor_t vals) {
     ASSERT(vals->isContiguous() && max_idx->isContiguous() && max_val->isContiguous(),
            "Argmax tensors must be contiguous");
 
-    if (vals->deviceType() == LLAISYS_DEVICE_CPU) {
-        return cpu::argmax(max_idx->data(),
-                           max_val->data(),
-                           vals->data(),
-                           vals->dtype(),
-                           vals->numel());
+    if (vals->deviceType() != LLAISYS_DEVICE_CPU) {
+        llaisys::core::context().setDevice(
+            vals->deviceType(),
+            vals->deviceId());
     }
 
-    llaisys::core::context().setDevice(vals->deviceType(), vals->deviceId());
-
     switch (vals->deviceType()) {
-#ifdef ENABLE_NVIDIA_API
-    case LLAISYS_DEVICE_NVIDIA:
-        return nvidia::argmax(max_idx->data(),
+    case LLAISYS_DEVICE_CPU:
+        return cpu::argmax(
+            max_idx->data(),
             max_val->data(),
             vals->data(),
             vals->dtype(),
-            vals->numel(),
-            llaisys::core::context().runtime().stream());
+            vals->numel());
+#ifdef ENABLE_NVIDIA_API
+    case LLAISYS_DEVICE_NVIDIA:
+        return nvidia::argmax(max_idx->data(),
+                              max_val->data(),
+                              vals->data(),
+                              vals->dtype(),
+                              vals->numel(),
+                              llaisys::core::context().runtime().stream());
 #endif
 #ifdef ENABLE_MUSA_API
     case LLAISYS_DEVICE_MUSA:
