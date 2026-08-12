@@ -23,12 +23,25 @@ def load_hf_model(model_path=None, device_name="cpu"):
         print(f"Loading model from Hugging Face: {model_id}")
         model_path = snapshot_download(model_id)
     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
-    model = AutoModelForCausalLM.from_pretrained(
-        model_path,
-        torch_dtype=torch.bfloat16,
-        device_map=torch_device(device_name),
-        trust_remote_code=True,
-    )
+    model_kwargs = {
+        "torch_dtype": torch.bfloat16,
+        "trust_remote_code": True,
+    }
+
+    if device_name == "musa":
+        # transformers 的 device_map 依赖 accelerate。
+        # MUSA 使用 PyTorch 原生设备迁移，不增加额外依赖。
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            **model_kwargs,
+        )
+        model = model.to(torch_device(device_name))
+    else:
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            device_map=torch_device(device_name),
+            **model_kwargs,
+        )
 
     return tokenizer, model, model_path
 
@@ -81,7 +94,7 @@ def llaisys_infer(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--device", default="cpu", choices=["cpu", "nvidia"], type=str)
+    parser.add_argument("--device", default="cpu", choices=["cpu", "nvidia", "musa"], type=str)
     parser.add_argument("--model", default=None, type=str)
     parser.add_argument("--prompt", default="Who are you?", type=str)
     parser.add_argument("--max_steps", default=128, type=int)
