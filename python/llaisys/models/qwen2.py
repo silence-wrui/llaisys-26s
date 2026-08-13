@@ -1,27 +1,17 @@
 import ctypes
 import json
+import operator
+
 import torch
 
-from ctypes import (
-    byref,
-    c_int,
-    c_int64,
-    c_size_t,
-    c_void_p,
-)
+from ctypes import (byref, c_int, c_int64, c_size_t, c_void_p,)
 
 from pathlib import Path
 from typing import Sequence
 
 from safetensors import safe_open
 
-from ..libllaisys import (
-    LIB_LLAISYS,
-    DataType,
-    DeviceType,
-    LlaisysQwen2Meta,
-)
-
+from ..libllaisys import (LIB_LLAISYS, DataType, DeviceType, LlaisysQwen2Meta,)
 
 class Qwen2:
 
@@ -283,58 +273,72 @@ class Qwen2:
             )
             self._model = None
 
+    def _validate_input_tokens(self, inputs: Sequence[int]):
+        if inputs is None:
+            raise TypeError("Qwen2 inputs must be a sequence of token ids")
+
+        try:
+            input_count = len(inputs)
+        except TypeError as error:
+            raise TypeError("Qwen2 inputs must be a sequence of token ids") from error
+
+        if input_count == 0:
+            raise ValueError("Qwen2 input tokens must not be empty")
+
+        vocab_size = int(self._meta.voc)
+        validated_tokens = []
+
+        for position, token in enumerate(inputs):
+            if isinstance(token, bool):
+                raise TypeError(f"Qwen2 token id at position {position} must be an integer, got bool")
+
+            try:
+                token_id = int(operator.index(token))
+            except TypeError as error:
+                token_type = type(token).__name__
+                raise TypeError(
+                    f"Qwen2 token id at position {position} must be an integer, got {token_type}"
+                ) from error
+
+            if not 0 <= token_id < vocab_size:
+                raise ValueError(
+                    f"Invalid Qwen2 token id at position {position}: {token_id}; expected [0, {vocab_size})"
+                )
+
+            validated_tokens.append(token_id)
+
+        return validated_tokens
+
     def generate(
-        self,
-        inputs: Sequence[int],
-        max_new_tokens: int = None,
-        top_k: int = 1,
-        top_p: float = 0.8,
-        temperature: float = 0.8,
+        self, inputs: Sequence[int], max_new_tokens: int = None,
+        top_k: int = 1, top_p: float = 0.8, temperature: float = 0.8,
     ):
         if self._used:
-            raise RuntimeError(
-                "This Qwen2 model instance has already "
-                "been used for generation"
-            )
+            raise RuntimeError("This Qwen2 model instance has already been used for generation")
 
-        if not inputs:
-            raise ValueError(
-                "Qwen2 input tokens must not be empty"
-            )
+        output_tokens = self._validate_input_tokens(inputs)
 
         if max_new_tokens is None:
             max_new_tokens = 128
 
         if max_new_tokens < 0:
-            raise ValueError(
-                "max_new_tokens must not be negative"
-            )
+            raise ValueError("max_new_tokens must not be negative")
 
-        # 当前作业要求 argmax，因此暂时不使用采样参数。
+        # 当前作业只要求 argmax，因此暂时不使用采样参数。
         _ = top_k, top_p, temperature
 
-        self._used = True
-
-        output_tokens = [
-            int(token) for token in inputs
-        ]
-
+        # 没有执行后端推理，不应消耗当前模型实例。
         if max_new_tokens == 0:
             return output_tokens
 
-        # 第一次必须传入完整提示词。
+        self._used = True
         current_input = output_tokens.copy()
 
         for _ in range(max_new_tokens):
-            token_array = (
-                c_int64 * len(current_input)
-            )(*current_input)
-
+            token_array = (c_int64 * len(current_input))(*current_input)
             next_token = int(
                 LIB_LLAISYS.llaisysQwen2ModelInfer(
-                    self._model,
-                    token_array,
-                    len(current_input),
+                    self._model, token_array, len(current_input)
                 )
             )
 
@@ -343,8 +347,7 @@ class Qwen2:
             if next_token == self._end_token:
                 break
 
-            # KV Cache 已保存此前内容，
-            # 下一轮只输入刚生成的一个 token。
+            # 历史内容已经保存在 KV Cache 中，后续只输入新生成的 token。
             current_input = [next_token]
 
         return output_tokens
