@@ -3,6 +3,9 @@
 #include "../../device/runtime_api.hpp"
 #include "../allocator/naive_allocator.hpp"
 
+#include <cstdio>
+#include <exception>
+
 namespace llaisys::core {
 Runtime::Runtime(llaisysDeviceType_t device_type, int device_id)
     : _device_type(device_type), _device_id(device_id), _is_active(false) {
@@ -12,13 +15,32 @@ Runtime::Runtime(llaisysDeviceType_t device_type, int device_id)
     _allocator = new allocators::NaiveAllocator(_api);
 }
 
-Runtime::~Runtime() {
+Runtime::~Runtime() noexcept {
     if (!_is_active) {
-        std::cerr << "Mallicious destruction of inactive runtime." << std::endl;
+        std::fprintf(
+            stderr,
+            "[WARNING] Destroying an inactive runtime.\n");
     }
+
     delete _allocator;
     _allocator = nullptr;
-    _api->destroy_stream(_stream);
+
+    if (_api != nullptr) {
+        try {
+            _api->destroy_stream(_stream);
+        } catch (const std::exception &error) {
+            std::fprintf(
+                stderr,
+                "[ERROR] Failed to destroy runtime stream: %s\n",
+                error.what());
+        } catch (...) {
+            std::fprintf(
+                stderr,
+                "[ERROR] Failed to destroy runtime stream: unknown error\n");
+        }
+    }
+
+    _stream = nullptr;
     _api = nullptr;
 }
 

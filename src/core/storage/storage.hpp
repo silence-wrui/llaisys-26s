@@ -16,7 +16,7 @@ private:
 
 public:
     friend class Runtime;
-    ~Storage();
+    ~Storage() noexcept;
 
     std::byte *memory() const;
     size_t size() const;

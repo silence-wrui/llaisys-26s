@@ -20,7 +20,7 @@ private:
 public:
     friend class Context;
 
-    ~Runtime();
+    ~Runtime() noexcept;
 
     // Prevent copying
     Runtime(const Runtime &) = delete;
