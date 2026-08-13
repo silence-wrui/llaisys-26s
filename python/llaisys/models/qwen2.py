@@ -1,5 +1,6 @@
 import ctypes
 import json
+import torch
 
 from ctypes import (
     byref,
@@ -42,9 +43,9 @@ class Qwen2:
             config = json.load(file)
 
         dtype_map = {
-            "bfloat16": DataType.BF16,
-            "float16": DataType.F16,
-            "float32": DataType.F32,
+            "bfloat16": (DataType.BF16, torch.bfloat16,),
+            "float16": (DataType.F16, torch.float16,),
+            "float32": (DataType.F32, torch.float32,),
         }
 
         dtype_name = config["torch_dtype"]
@@ -53,6 +54,9 @@ class Qwen2:
             raise ValueError(
                 f"Unsupported model dtype: {dtype_name}"
             )
+
+        backend_dtype, torch_dtype = dtype_map[dtype_name]
+        self._torch_dtype = torch_dtype
 
         hidden_size = config["hidden_size"]
         num_heads = config["num_attention_heads"]
@@ -70,7 +74,7 @@ class Qwen2:
         )
 
         self._meta = LlaisysQwen2Meta(
-            dtype=int(dtype_map[dtype_name]),
+            dtype=int(backend_dtype),
 
             nlayer=config["num_hidden_layers"],
             hs=hidden_size,
@@ -120,68 +124,85 @@ class Qwen2:
         self._load_weights(model_path, handles)
 
     def _build_weight_map(self, weights):
+        hs = int(self._meta.hs)
+        nh = int(self._meta.nh)
+        nkvh = int(self._meta.nkvh)
+        dh = int(self._meta.dh)
+        di = int(self._meta.di)
+        voc = int(self._meta.voc)
+        nlayer = int(self._meta.nlayer)
+
+        q_size = nh * dh
+        kv_size = nkvh * dh
+
         handles = {
-            "model.embed_tokens.weight":
+            "model.embed_tokens.weight": (
                 weights.in_embed,
+                (voc, hs),
+            ),
 
-            "lm_head.weight":
+            "lm_head.weight": (
                 weights.out_embed,
+                (voc, hs),
+            ),
 
-            "model.norm.weight":
+            "model.norm.weight": (
                 weights.out_norm_w,
+                (hs,),
+            ),
         }
 
-        for layer in range(self._meta.nlayer):
+        for layer in range(nlayer):
             prefix = f"model.layers.{layer}"
 
             handles[
                 f"{prefix}.input_layernorm.weight"
-            ] = weights.attn_norm_w[layer]
+            ] = (weights.attn_norm_w[layer], (hs,),)
 
             handles[
                 f"{prefix}.self_attn.q_proj.weight"
-            ] = weights.attn_q_w[layer]
+            ] = (weights.attn_q_w[layer], (q_size, hs),)
 
             handles[
                 f"{prefix}.self_attn.q_proj.bias"
-            ] = weights.attn_q_b[layer]
+            ] = (weights.attn_q_b[layer], (q_size,),)
 
             handles[
                 f"{prefix}.self_attn.k_proj.weight"
-            ] = weights.attn_k_w[layer]
+            ] = (weights.attn_k_w[layer], (kv_size, hs),)
 
             handles[
                 f"{prefix}.self_attn.k_proj.bias"
-            ] = weights.attn_k_b[layer]
+            ] = (weights.attn_k_b[layer], (kv_size,),)
 
             handles[
                 f"{prefix}.self_attn.v_proj.weight"
-            ] = weights.attn_v_w[layer]
+            ] = (weights.attn_v_w[layer], (kv_size, hs),)
 
             handles[
                 f"{prefix}.self_attn.v_proj.bias"
-            ] = weights.attn_v_b[layer]
+            ] = (weights.attn_v_b[layer], (kv_size,),)
 
             handles[
                 f"{prefix}.self_attn.o_proj.weight"
-            ] = weights.attn_o_w[layer]
+            ] = (weights.attn_o_w[layer], (hs, q_size),)
 
             handles[
                 f"{prefix}."
                 "post_attention_layernorm.weight"
-            ] = weights.mlp_norm_w[layer]
+            ] = (weights.mlp_norm_w[layer], (hs,),)
 
             handles[
                 f"{prefix}.mlp.gate_proj.weight"
-            ] = weights.mlp_gate_w[layer]
+            ] = (weights.mlp_gate_w[layer], (di, hs),)
 
             handles[
                 f"{prefix}.mlp.up_proj.weight"
-            ] = weights.mlp_up_w[layer]
+            ] = (weights.mlp_up_w[layer], (di, hs),)
 
             handles[
                 f"{prefix}.mlp.down_proj.weight"
-            ] = weights.mlp_down_w[layer]
+            ] = (weights.mlp_down_w[layer], (hs, di),)
 
         return handles
 
@@ -204,10 +225,26 @@ class Qwen2:
 
                     tensor = tensors.get_tensor(name)
 
+                    handle, expected_shape = handles[name]
+
+                    actual_shape = tuple(tensor.shape)
+
+                    if actual_shape != expected_shape:
+                        raise ValueError(
+                            f"Weight shape mismatch for {name}: "
+                            f"expected {expected_shape}, "
+                            f"got {actual_shape}"
+                        )
+
+                    if tensor.dtype != self._torch_dtype:
+                        raise TypeError(
+                            f"Weight dtype mismatch for {name}: "
+                            f"expected {self._torch_dtype}, "
+                            f"got {tensor.dtype}"
+                        )
+
                     if not tensor.is_contiguous():
                         tensor = tensor.contiguous()
-
-                    handle = handles[name]
 
                     if not handle:
                         raise RuntimeError(
@@ -221,7 +258,6 @@ class Qwen2:
 
                     loaded.add(name)
 
-                    # 不把全部 PyTorch Tensor 留在列表中。
                     del tensor
 
         missing = expected - loaded
