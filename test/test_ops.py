@@ -60,7 +60,7 @@ def main() -> None:
     parser.add_argument(
         "--device",
         default="cpu",
-        choices=["cpu", "nvidia"],
+        choices=["cpu", "nvidia", "musa"],
         help="Device used by operator tests",
     )
 
