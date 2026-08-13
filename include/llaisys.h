@@ -64,4 +64,8 @@ typedef enum {
     LLAISYS_MEMCPY_D2D = 3,
 } llaisysMemcpyKind_t;
 
+// Error handling
+__C __export const char *llaisysGetLastError(void);
+__C __export void llaisysClearLastError(void);
+
 #endif // __LLAISYS_H__

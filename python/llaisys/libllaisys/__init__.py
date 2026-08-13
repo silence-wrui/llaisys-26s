@@ -1,8 +1,11 @@
+import ctypes
 import os
 import sys
-import ctypes
+
 from pathlib import Path
 
+from .error import load_error
+from .error import raise_last_error as _raise_last_error
 from .runtime import load_runtime
 from .runtime import LlaisysRuntimeAPI
 from .llaisys_types import llaisysDeviceType_t, DeviceType
@@ -18,6 +21,7 @@ from .models import (
     LlaisysQwen2Weights,
     llaisysQwen2Model_t,
 )
+
 
 def load_shared_library():
     lib_dir = Path(__file__).parent
@@ -40,14 +44,17 @@ def load_shared_library():
 
 
 LIB_LLAISYS = load_shared_library()
-load_runtime(LIB_LLAISYS)
-load_tensor(LIB_LLAISYS)
-load_ops(LIB_LLAISYS)
 
+load_error(LIB_LLAISYS)
 load_runtime(LIB_LLAISYS)
 load_tensor(LIB_LLAISYS)
 load_ops(LIB_LLAISYS)
 load_models(LIB_LLAISYS)
+
+
+def raise_last_error():
+    _raise_last_error(LIB_LLAISYS)
+
 
 __all__ = [
     "LIB_LLAISYS",
@@ -60,5 +67,5 @@ __all__ = [
     "DeviceType",
     "llaisysMemcpyKind_t",
     "MemcpyKind",
-    "llaisysStream_t",
+    "raise_last_error",
 ]
